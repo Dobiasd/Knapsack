@@ -3,6 +3,7 @@ module Main where
 {-| bounded Knapsack problem -}
 
 import Control.Applicative
+import Data.Function
 import Data.List
 import System.Environment
 import System.Random
@@ -58,10 +59,10 @@ valueSum (Result items) = map getValue items -: sum
 newtype Result = Result [Item]
 
 instance Ord Result where
-    r1 `compare` r2 = (valueSum r1) `compare` (valueSum r2)
+    compare = compare `on` valueSum
 
 instance Eq Result where
-    r1 == r2 = (valueSum r1) == (valueSum r2)
+    (==) = (==) `on` valueSum
 
 instance Show Result where
     show result@(Result items) =
