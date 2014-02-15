@@ -116,19 +116,21 @@ type Params = (Index, Weight)
 type Memo = M.Map Params Value
 
 solveNaiveGo :: Items -> Index -> Weight -> Value
-solveNaiveGo _ (-1) _ = 0
-solveNaiveGo items idx weightLeft =
-    if itemWeight > weightLeft
-    then solveNaiveGo items (idx - 1) weightLeft
-    else max (solveNaiveGo items (idx - 1) weightLeft)
-             (solveNaiveGo items (idx - 1) (weightLeft - itemWeight)
-             + itemValue)
-    where
-        item = items V.! idx
-        (itemValue, itemWeight) = (value item, weight item)
+solveNaiveGo items idx weightLeft
+    | idx >= numItems = 0
+    | otherwise =
+        if itemWeight > weightLeft
+        then solveNaiveGo items (idx + 1) weightLeft
+        else max (solveNaiveGo items (idx + 1) weightLeft)
+                 (solveNaiveGo items (idx + 1) (weightLeft - itemWeight)
+                 + itemValue)
+        where
+            numItems = V.length items
+            item = items V.! idx
+            (itemValue, itemWeight) = (value item, weight item)
 
 solveNaive :: Items -> Weight -> Value
-solveNaive items maxWeight = solveNaiveGo items (V.length items - 1) maxWeight
+solveNaive items maxWeight = solveNaiveGo items 0 maxWeight
 
 solveMemo :: Items -> Weight -> Value
 solveMemo items maxWeight = V.maximum firstMemoRow
