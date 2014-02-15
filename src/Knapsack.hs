@@ -17,8 +17,9 @@ type Value = Int
 type Weight = Int
 data Item = Item { value :: Value, weight :: Weight } deriving Show
 
--- http://www.proggen.org/doku.php?id=algo:knapsack
 type Items = V.Vector Item
+
+-- http://www.proggen.org/doku.php?id=algo:knapsack
 items1 :: Items
 items1 = V.fromList
         [
@@ -50,6 +51,22 @@ items3 = V.fromList
         [
           Item 2 1
         , Item 3 20
+        ]
+
+items4 :: Items
+items4 = V.fromList
+        [
+          Item 10 30
+        , Item  8  5
+        , Item  8  5
+        , Item  6  6
+        , Item  5  8
+        , Item 10 10
+        , Item  5 11
+        , Item 10 12
+        , Item 17 15
+        , Item 20 15
+        , Item 20 30
         ]
 
 type Index = Int
@@ -84,20 +101,21 @@ knapsack items wmax = arr ! wmax
     m w = maximum $ 0:[vi + arr ! (w - wi) | (vi, wi) <- items, wi <= w]
 -}
 solve2 :: Items -> Weight -> Value
-solve2 items maxWeight = getMemo (numItems-1) maxWeight
+solve2 items maxWeight = V.maximum firstMemoRow
     where
-        memo = V.fromList [f idx weight | weight <- [0..maxWeight]
-                                        , idx <- [0..(numItems-1)]]
-        memoIndex idx weight = weight * numItems + idx
+        memo = V.fromList [f idx weight | idx <- [0..(numItems-1)]
+                                        , weight <- [0..maxWeight]]
+        firstMemoRow = V.slice 0 (maxWeight+1) memo
+        memoIndex idx weight = idx * (maxWeight+1) + weight
         numItems = V.length items
-        getMemo (-1) _ = 0
-        getMemo idx weight = memo V.! (memoIndex idx weight)
-        f (-1) _ = 0
+        getMemo idx weight
+            | idx >= numItems = 0
+            | otherwise = memo V.! (memoIndex idx weight)
         f idx weightLeft =
             if itemWeight > weightLeft
-            then getMemo (idx - 1) weightLeft
-            else max (getMemo (idx - 1) weightLeft)
-                     (getMemo (idx - 1) (weightLeft - itemWeight)
+            then getMemo (idx + 1) weightLeft
+            else max (getMemo (idx + 1) weightLeft)
+                     (getMemo (idx + 1) (weightLeft - itemWeight)
                      + itemValue)
             where
                 item = items V.! idx
