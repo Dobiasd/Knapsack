@@ -151,11 +151,15 @@ solveMemo items maxWeight = V.maximum firstMemoRow
 
 main :: IO ()
 main = do
+{-
     print $ solve items1 (V.length items1 - 1) 30 -- -> 38
     print $ solve items2 (V.length items2 - 1) 15 -- -> 11
     print $ solve items3 (V.length items3 - 1) 10 -- -> 2
-    print $ solve items4 (V.length items4 - 1) 114 -- -> ?
+-}
+--    print $ solve items4 (V.length items4 - 1) 263 -- -> ?
+{-
     print $ solveMemo items1 30 -- -> 38
     print $ solveMemo items2 15 -- -> 11
     print $ solveMemo items3 10 -- -> 2
-    print $ solveMemo items4 114 -- -> ?
+-}
+    print $ solveMemo items4 263 -- -> ?
