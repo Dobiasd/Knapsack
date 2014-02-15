@@ -3,7 +3,9 @@ module Main where
 {-| bounded Knapsack problem -}
 
 import Control.Applicative
+import Data.List
 import System.Environment
+import System.Random
 import qualified Data.Map as M
 import qualified Data.Vector as V
 
@@ -18,60 +20,15 @@ data Item = Item { getValue :: Value, getWeight :: Weight } deriving Show
 
 type Items = V.Vector Item
 
+
+randomList :: Int -> StdGen -> [Int]
+randomList n = take n . unfoldr (Just . random)
+
 testItems :: Items
-testItems = V.fromList
-        [
-          Item 28  52
-        , Item 3   25
-        , Item 29  52
-        , Item 86  51
-        , Item 17  80
-        , Item 30  71
-        , Item 6   25
-        , Item 8   46
-        , Item 42  97
-        , Item 65  82
-        , Item 94  97
-        , Item 90  36
-        , Item 37  22
-        , Item 44  76
-        , Item 48  95
-        , Item 92  9
-        , Item 83  50
-        , Item 57  4
-        , Item 36  47
-        , Item 3   17
-        , Item 83  73
-        , Item 72  77
-        , Item 37  7
-        , Item 95  54
-        , Item 54  51
-        , Item 93  98
-        , Item 35  51
-        , Item 33  93
-        , Item 47  30
-        , Item 13  48
-        , Item 28  38
-        , Item 99  19
-        , Item 62  96
-        , Item 2   31
-        , Item 62  28
-        , Item 7   39
-        , Item 60  80
-        , Item 5   91
-        , Item 65  9
-        , Item 56  96
-        , Item 73  95
-        , Item 95  92
-        , Item 55  69
-        , Item 47  1
-        , Item 35  98
-        , Item 29  59
-        , Item 76  20
-        , Item 35  23
-        , Item 15  6
-        , Item 46  2
-        ]
+testItems = V.fromList $ zipWith Item randomValues randomWeights
+    where
+        randomValues =  randomList 100 (mkStdGen 0) -: map (`mod` 100)
+        randomWeights = randomList 100 (mkStdGen 1) -: map (`mod` 100)
 
 type Index = Int
 type Params = (Index, Weight)
@@ -118,4 +75,4 @@ args2Func mode = error $ "unknown mode: " ++ show mode
 main :: IO ()
 main = do
     solve <- args2Func <$> getArgs
-    print $ solve testItems 263 -- -> 889
+    print $ solve testItems 4000 -- -> 889
