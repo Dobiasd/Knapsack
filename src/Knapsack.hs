@@ -45,6 +45,13 @@ items2 = V.fromList
         , Item 2  2
         ]
 
+items3 :: Items
+items3 = V.fromList
+        [
+          Item 2 1
+        , Item 3 20
+        ]
+
 type Index = Int
 type Params = (Index, Weight)
 -- type Result = [Item]
@@ -69,7 +76,38 @@ solve items memo idx weightLeft =
         (Just result) -> result
         Nothing -> solveFresh items memo idx weightLeft
 
+{-
+knapsack items wmax = arr ! wmax
+  where
+    arr = array (0, wmax) [(w, m w) | w <- [0..wmax]]
+    m 0 = 0
+    m w = maximum $ 0:[vi + arr ! (w - wi) | (vi, wi) <- items, wi <= w]
+-}
+solve2 :: Items -> Weight -> Value
+solve2 items maxWeight = getMemo (numItems-1) maxWeight
+    where
+        memo = V.fromList [f idx weight | weight <- [0..maxWeight]
+                                        , idx <- [0..(numItems-1)]]
+        memoIndex idx weight = weight * numItems + idx
+        numItems = V.length items
+        getMemo (-1) _ = 0
+        getMemo idx weight = memo V.! (memoIndex idx weight)
+        f (-1) _ = 0
+        f idx weightLeft =
+            if itemWeight > weightLeft
+            then getMemo (idx - 1) weightLeft
+            else max (getMemo (idx - 1) weightLeft)
+                     (getMemo (idx - 1) (weightLeft - itemWeight)
+                     + itemValue)
+            where
+                item = items V.! idx
+                (itemValue, itemWeight) = (value item, weight item)
+
+
 main :: IO ()
 main = do
     print $ solve items1 M.empty (V.length items1 - 1) 30 -- -> 38
     print $ solve items2 M.empty (V.length items2 - 1) 15 -- -> 11
+    print $ solve2 items1 30 -- -> 38
+    print $ solve2 items2 15 -- -> 11
+    print $ solve2 items3 10 -- -> 2
