@@ -1,3 +1,5 @@
+# http://codereview.stackexchange.com/questions/20569/dynamic-programming-solution-to-knapsack-problem
+
 def knapsack(items, maxweight):
     """
     Solve the knapsack problem by finding the most valuable
@@ -19,7 +21,7 @@ def knapsack(items, maxweight):
 
     # Return the value of the most valuable subsequence of the first i
     # elements in items whose weights sum to no more than j.
-    @memoized
+    #@memoized
     def bestvalue(i, j):
         if i == 0: return 0
         value, weight = items[i - 1]
@@ -37,3 +39,6 @@ def knapsack(items, maxweight):
             j -= items[i - 1][1]
     result.reverse()
     return bestvalue(len(items), maxweight), result
+
+items = [(4, 12), (2, 1), (6, 4), (1, 1), (2, 2)]
+print(knapsack(items, 15))
