@@ -2,9 +2,11 @@ module Main where
 
 {-| todo bla -}
 
-import Data.List
+import Control.Applicative
 import Data.Function
+import Data.List
 import Text.Printf
+import System.Environment
 import qualified Data.Map as M
 import qualified Data.Vector as V
 
@@ -113,19 +115,20 @@ type Params = (Index, Weight)
 -- type Result = [Item]
 type Memo = M.Map Params Value
 
-solve :: Items -> Index -> Weight -> Value
-solve _ (-1) _ = 0
-solve items idx weightLeft =
+solveNaiveGo :: Items -> Index -> Weight -> Value
+solveNaiveGo _ (-1) _ = 0
+solveNaiveGo items idx weightLeft =
     if itemWeight > weightLeft
-    then solve items (idx - 1) weightLeft
-    else max (solve items (idx - 1) weightLeft)
-             (solve items (idx - 1) (weightLeft - itemWeight)
+    then solveNaiveGo items (idx - 1) weightLeft
+    else max (solveNaiveGo items (idx - 1) weightLeft)
+             (solveNaiveGo items (idx - 1) (weightLeft - itemWeight)
              + itemValue)
     where
         item = items V.! idx
         (itemValue, itemWeight) = (value item, weight item)
 
-
+solveNaive :: Items -> Weight -> Value
+solveNaive items maxWeight = solveNaiveGo items (V.length items - 1) maxWeight
 
 solveMemo :: Items -> Weight -> Value
 solveMemo items maxWeight = V.maximum firstMemoRow
@@ -148,18 +151,15 @@ solveMemo items maxWeight = V.maximum firstMemoRow
                 item = items V.! idx
                 (itemValue, itemWeight) = (value item, weight item)
 
+args2Func ("naive":_) = solveNaive
+args2Func ("memo":_) = solveMemo
+args2Func mode = error $ "unknown mode: " ++ show mode
 
 main :: IO ()
 main = do
-{-
-    print $ solve items1 (V.length items1 - 1) 30 -- -> 38
-    print $ solve items2 (V.length items2 - 1) 15 -- -> 11
-    print $ solve items3 (V.length items3 - 1) 10 -- -> 2
--}
---    print $ solve items4 (V.length items4 - 1) 263 -- -> ?
-{-
-    print $ solveMemo items1 30 -- -> 38
-    print $ solveMemo items2 15 -- -> 11
-    print $ solveMemo items3 10 -- -> 2
--}
-    print $ solveMemo items4 263 -- -> ?
+    solve <- args2Func <$> getArgs
+
+    print $ solve items1 30 -- -> 38
+    print $ solve items2 15 -- -> 11
+    print $ solve items3 10 -- -> 2
+    print $ solve items4 263 -- -> 889
