@@ -51,19 +51,17 @@ type Params = (Index, Weight)
 type Memo = M.Map Params Value
 
 solveFresh :: Items -> Memo -> Index -> Weight -> Value
+solveFresh _ _ (-1) _ = 0
 solveFresh items memo idx weightLeft =
-    if idx < 0
-    then 0
-    else
-        let
-            item = items V.! idx
-            (itemValue, itemWeight) = (value item, weight item)
-        in
-            if itemWeight > weightLeft
-            then solve items memo (idx - 1) weightLeft
-            else max (solve items memo (idx - 1) weightLeft)
-                     (solve items memo (idx - 1) (weightLeft - itemWeight)
-                     + itemValue)
+    if itemWeight > weightLeft
+    then solve items memo (idx - 1) weightLeft
+    else max (solve items memo (idx - 1) weightLeft)
+             (solve items memo (idx - 1) (weightLeft - itemWeight)
+             + itemValue)
+    where
+        item = items V.! idx
+        (itemValue, itemWeight) = (value item, weight item)
+
 
 solve :: Items -> Memo -> Index -> Weight -> Value
 solve items memo idx weightLeft =
@@ -73,5 +71,5 @@ solve items memo idx weightLeft =
 
 main :: IO ()
 main = do
-    print $ solve items1 M.empty (V.length items1 - 1) 30
-    print $ solve items2 M.empty (V.length items2 - 1) 15
+    print $ solve items1 M.empty (V.length items1 - 1) 30 -- -> 38
+    print $ solve items2 M.empty (V.length items2 - 1) 15 -- -> 11
