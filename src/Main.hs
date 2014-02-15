@@ -1,4 +1,4 @@
-module Knapsack where
+module Main where
 
 {-| todo bla -}
 
