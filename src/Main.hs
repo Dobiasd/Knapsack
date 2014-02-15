@@ -1,11 +1,8 @@
 module Main where
 
-{-| todo bla -}
+{-| bounded Knapsack problem -}
 
 import Control.Applicative
-import Data.Function
-import Data.List
-import Text.Printf
 import System.Environment
 import qualified Data.Map as M
 import qualified Data.Vector as V
@@ -17,46 +14,12 @@ infixl 0 -:
 
 type Value = Int
 type Weight = Int
-data Item = Item { value :: Value, weight :: Weight } deriving Show
+data Item = Item { getValue :: Value, getWeight :: Weight } deriving Show
 
 type Items = V.Vector Item
 
--- http://www.proggen.org/doku.php?id=algo:knapsack
-items1 :: Items
-items1 = V.fromList
-        [
-          Item 10 30
-        , Item  8  5
-        , Item  8  5
-        , Item  6  6
-        , Item  5  8
-        , Item 10 10
-        , Item  5 11
-        , Item 10 12
-        , Item 17 15
-        , Item 20 15
-        , Item 20 30
-        ]
-
-items2 :: Items
-items2 = V.fromList
-        [
-          Item 4 12
-        , Item 2  1
-        , Item 6  4
-        , Item 1  1
-        , Item 2  2
-        ]
-
-items3 :: Items
-items3 = V.fromList
-        [
-          Item 2 1
-        , Item 3 20
-        ]
-
-items4 :: Items
-items4 = V.fromList
+testItems :: Items
+testItems = V.fromList
         [
           Item 28  52
         , Item 3   25
@@ -112,22 +75,24 @@ items4 = V.fromList
 
 type Index = Int
 type Params = (Index, Weight)
--- type Result = [Item]
 type Memo = M.Map Params Value
+type Solver = Items -> Index -> Weight -> Value
+
+solveGoodIdx :: Solver -> Items -> Index -> Weight -> Value
+solveGoodIdx go items idx weightLeft
+    | itemWeight > weightLeft = go items (idx + 1) weightLeft
+    | otherwise =
+        max (go items (idx + 1) weightLeft)
+            (go items (idx + 1) (weightLeft - itemWeight) + itemValue)
+    where
+        item = items V.! idx
+        (itemValue, itemWeight) = (getValue item, getWeight item)
 
 solveNaiveGo :: Items -> Index -> Weight -> Value
 solveNaiveGo items idx weightLeft
     | idx >= numItems = 0
-    | otherwise =
-        if itemWeight > weightLeft
-        then solveNaiveGo items (idx + 1) weightLeft
-        else max (solveNaiveGo items (idx + 1) weightLeft)
-                 (solveNaiveGo items (idx + 1) (weightLeft - itemWeight)
-                 + itemValue)
-        where
-            numItems = V.length items
-            item = items V.! idx
-            (itemValue, itemWeight) = (value item, weight item)
+    | otherwise = solveGoodIdx solveNaiveGo items idx weightLeft
+    where numItems = V.length items
 
 solveNaive :: Items -> Weight -> Value
 solveNaive items maxWeight = solveNaiveGo items 0 maxWeight
@@ -135,24 +100,17 @@ solveNaive items maxWeight = solveNaiveGo items 0 maxWeight
 solveMemo :: Items -> Weight -> Value
 solveMemo items maxWeight = V.maximum firstMemoRow
     where
-        memo = V.fromList [f idx weight | idx <- [0..(numItems-1)]
-                                        , weight <- [0..maxWeight]]
+        memo = V.fromList [solveGoodIdx getMemo items i w |
+                               i <- [0..(numItems-1)]
+                             , w <- [0..maxWeight]]
         firstMemoRow = V.slice 0 (maxWeight+1) memo
         memoIndex idx weight = idx * (maxWeight+1) + weight
         numItems = V.length items
-        getMemo idx weight
+        getMemo _ idx weight
             | idx >= numItems = 0
             | otherwise = memo V.! (memoIndex idx weight)
-        f idx weightLeft =
-            if itemWeight > weightLeft
-            then getMemo (idx + 1) weightLeft
-            else max (getMemo (idx + 1) weightLeft)
-                     (getMemo (idx + 1) (weightLeft - itemWeight)
-                     + itemValue)
-            where
-                item = items V.! idx
-                (itemValue, itemWeight) = (value item, weight item)
 
+args2Func :: [String] -> (Items -> Weight -> Value)
 args2Func ("naive":_) = solveNaive
 args2Func ("memo":_) = solveMemo
 args2Func mode = error $ "unknown mode: " ++ show mode
@@ -160,8 +118,4 @@ args2Func mode = error $ "unknown mode: " ++ show mode
 main :: IO ()
 main = do
     solve <- args2Func <$> getArgs
-
-    print $ solve items1 30 -- -> 38
-    print $ solve items2 15 -- -> 11
-    print $ solve items3 10 -- -> 2
-    print $ solve items4 263 -- -> 889
+    print $ solve testItems 263 -- -> 889
