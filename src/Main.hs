@@ -100,27 +100,42 @@ solveNaive items = solveNaiveGo items 0 []
 maxIndex :: Ord a => [a] -> Int
 maxIndex xs = head $ filter ((== maximum xs) . (xs !!)) [0..]
 
-backTrack :: (Index -> Weight -> Result) -> Weight -> Result
-backTrack getMemo maxWeight =
-    --Result 0 [Item "all" (getValueSum $ getMemo 0 maxWeightIdx) 0]
-    getMemo 0 maxWeightIdx
+backTrack :: Items -> (Index -> Weight -> Result) -> Weight -> Result
+backTrack items getMemo maxWeight =
+    Result valueSum (map (items V.!) (f [] 0 valueSum))
     where
+        valueSum = getValueSum $ getMemo 0 maxWeightIdx
+        numItems = V.length items
         maxWeightIdx = maxIndex $ map (getMemo 0) [0..maxWeight]
+        f :: [Index] -> Index -> Weight -> [Index]
+        f acc idx weightSum
+            | idx >= numItems = acc
+            | nextValSum == valSum - getValue item =
+                f (acc ++ [idx]) (idx + 1) nextWeightSum
+            | otherwise = f acc (idx + 1) weightSum
+            where
+                valSum = getValueSum $ getMemo idx weightSum
+                nextWeightSum = weightSum - itemWeight
+                nextValSum
+                    | nextWeightSum >= 0 =
+                        getValueSum $ getMemo (idx + 1) nextWeightSum
+                    | otherwise = -1
+                item = items V.! idx
+                itemWeight = getWeight item
+
 
 solveMemo :: Items -> Weight -> Result
-solveMemo items maxWeight = backTrack getMemo maxWeight
+solveMemo items maxWeight = backTrack items getMemo maxWeight
     where
         memo = V.fromList [solveGoodIdx memoSolver items i [] w |
                                i <- [0..(numItems-1)]
                              , w <- [0..maxWeight]]
         memoIndex idx weight = idx * (maxWeight+1) + weight
-        numItems = V.length items
-        getMemo :: Index -> Weight -> Result
         getMemo idx weight
             | idx >= numItems = Result 0 []
             | otherwise = memo V.! memoIndex idx weight
-        memoSolver :: Solver
         memoSolver _ idx _ weight = getMemo idx weight
+        numItems = V.length items
 
 
 args2Func :: [String] -> Items -> Weight -> Result
@@ -132,3 +147,4 @@ main :: IO ()
 main = do
     solve <- args2Func <$> getArgs
     print $ solve items1 30
+    --print $ solve (V.fromList $ [Item "1" 10 10, Item "2" 2 2]) 5
