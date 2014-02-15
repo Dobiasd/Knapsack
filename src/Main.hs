@@ -87,7 +87,7 @@ solveNaiveGo items idx inside weightLeft
     where numItems = V.length items
 
 solveNaive :: Items -> Weight -> Result
-solveNaive items maxWeight = solveNaiveGo items 0 [] maxWeight
+solveNaive items = solveNaiveGo items 0 []
 
 solveMemo :: Items -> Weight -> Result
 solveMemo items maxWeight = Result $ backTrack maxIdx
@@ -101,11 +101,11 @@ solveMemo items maxWeight = Result $ backTrack maxIdx
         getMemo :: Items -> Index -> [Item] -> Weight -> Result
         getMemo _ idx _ weight
             | idx >= numItems = Result []
-            | otherwise = memo V.! (memoIndex idx weight)
+            | otherwise = memo V.! memoIndex idx weight
         maxIdx = V.maxIndex firstMemoRow
         backTrack _ = []
 
-args2Func :: [String] -> (Items -> Weight -> Result)
+args2Func :: [String] -> Items -> Weight -> Result
 args2Func ("naive":_) = solveNaive
 args2Func ("memo":_) = solveMemo
 args2Func mode = error $ "unknown mode: " ++ show mode
