@@ -53,6 +53,13 @@ type Index = Int
 type Params = (Index, Weight)
 type Memo = M.Map Params Value
 
+-- Naive solution fills both fields.
+--  It would only need the second, since the first
+--  can be calculated on demand, but this would again
+--  lift its algorithmic complexity.
+-- The memoized solution only uses the first field,
+--  since it can not know about the second.
+--  The items are backtracked after everything is done.
 data Result = Result { getValueSum :: Int, getItems :: [Item] }
 
 instance Ord Result where
@@ -93,15 +100,15 @@ solveNaive items = solveNaiveGo items 0 []
 maxIndex :: Ord a => [a] -> Int
 maxIndex xs = head $ filter ((== maximum xs) . (xs !!)) [0..]
 
-backTrack :: (Index -> Weight -> Result) -> Index -> Weight -> Result
-backTrack getMemo numItems maxWeight =
+backTrack :: (Index -> Weight -> Result) -> Weight -> Result
+backTrack getMemo maxWeight =
     --Result 0 [Item "all" (getValueSum $ getMemo 0 maxWeightIdx) 0]
     getMemo 0 maxWeightIdx
     where
         maxWeightIdx = maxIndex $ map (getMemo 0) [0..maxWeight]
 
 solveMemo :: Items -> Weight -> Result
-solveMemo items maxWeight = backTrack getMemo numItems maxWeight
+solveMemo items maxWeight = backTrack getMemo maxWeight
     where
         memo = V.fromList [solveGoodIdx memoSolver items i [] w |
                                i <- [0..(numItems-1)]
