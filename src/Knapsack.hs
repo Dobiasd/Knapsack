@@ -56,17 +56,56 @@ items3 = V.fromList
 items4 :: Items
 items4 = V.fromList
         [
-          Item 10 30
-        , Item  8  5
-        , Item  8  5
-        , Item  6  6
-        , Item  5  8
-        , Item 10 10
-        , Item  5 11
-        , Item 10 12
-        , Item 17 15
-        , Item 20 15
-        , Item 20 30
+          Item 28  52
+        , Item 3   25
+        , Item 29  52
+        , Item 86  51
+        , Item 17  80
+        , Item 30  71
+        , Item 6   25
+        , Item 8   46
+        , Item 42  97
+        , Item 65  82
+        , Item 94  97
+        , Item 90  36
+        , Item 37  22
+        , Item 44  76
+        , Item 48  95
+        , Item 92  9
+        , Item 83  50
+        , Item 57  4
+        , Item 36  47
+        , Item 3   17
+        , Item 83  73
+        , Item 72  77
+        , Item 37  7
+        , Item 95  54
+        , Item 54  51
+        , Item 93  98
+        , Item 35  51
+        , Item 33  93
+        , Item 47  30
+        , Item 13  48
+        , Item 28  38
+        , Item 99  19
+        , Item 62  96
+        , Item 2   31
+        , Item 62  28
+        , Item 7   39
+        , Item 60  80
+        , Item 5   91
+        , Item 65  9
+        , Item 56  96
+        , Item 73  95
+        , Item 95  92
+        , Item 55  69
+        , Item 47  1
+        , Item 35  98
+        , Item 29  59
+        , Item 76  20
+        , Item 35  23
+        , Item 15  6
+        , Item 46  2
         ]
 
 type Index = Int
@@ -74,34 +113,22 @@ type Params = (Index, Weight)
 -- type Result = [Item]
 type Memo = M.Map Params Value
 
-solveFresh :: Items -> Memo -> Index -> Weight -> Value
-solveFresh _ _ (-1) _ = 0
-solveFresh items memo idx weightLeft =
+solve :: Items -> Index -> Weight -> Value
+solve _ (-1) _ = 0
+solve items idx weightLeft =
     if itemWeight > weightLeft
-    then solve items memo (idx - 1) weightLeft
-    else max (solve items memo (idx - 1) weightLeft)
-             (solve items memo (idx - 1) (weightLeft - itemWeight)
+    then solve items (idx - 1) weightLeft
+    else max (solve items (idx - 1) weightLeft)
+             (solve items (idx - 1) (weightLeft - itemWeight)
              + itemValue)
     where
         item = items V.! idx
         (itemValue, itemWeight) = (value item, weight item)
 
 
-solve :: Items -> Memo -> Index -> Weight -> Value
-solve items memo idx weightLeft =
-    case M.lookup (idx, weightLeft) memo of
-        (Just result) -> result
-        Nothing -> solveFresh items memo idx weightLeft
 
-{-
-knapsack items wmax = arr ! wmax
-  where
-    arr = array (0, wmax) [(w, m w) | w <- [0..wmax]]
-    m 0 = 0
-    m w = maximum $ 0:[vi + arr ! (w - wi) | (vi, wi) <- items, wi <= w]
--}
-solve2 :: Items -> Weight -> Value
-solve2 items maxWeight = V.maximum firstMemoRow
+solveMemo :: Items -> Weight -> Value
+solveMemo items maxWeight = V.maximum firstMemoRow
     where
         memo = V.fromList [f idx weight | idx <- [0..(numItems-1)]
                                         , weight <- [0..maxWeight]]
@@ -124,8 +151,11 @@ solve2 items maxWeight = V.maximum firstMemoRow
 
 main :: IO ()
 main = do
-    print $ solve items1 M.empty (V.length items1 - 1) 30 -- -> 38
-    print $ solve items2 M.empty (V.length items2 - 1) 15 -- -> 11
-    print $ solve2 items1 30 -- -> 38
-    print $ solve2 items2 15 -- -> 11
-    print $ solve2 items3 10 -- -> 2
+    print $ solve items1 (V.length items1 - 1) 30 -- -> 38
+    print $ solve items2 (V.length items2 - 1) 15 -- -> 11
+    print $ solve items3 (V.length items3 - 1) 10 -- -> 2
+    print $ solve items4 (V.length items4 - 1) 114 -- -> ?
+    print $ solveMemo items1 30 -- -> 38
+    print $ solveMemo items2 15 -- -> 11
+    print $ solveMemo items3 10 -- -> 2
+    print $ solveMemo items4 114 -- -> ?
