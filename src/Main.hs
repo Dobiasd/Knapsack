@@ -114,7 +114,8 @@ backTrack items getMemo maxWeight =
         indices :: [Index]
         indices = until (\(i, _, _) -> i >= numItems)
                         nextPos
-                        (0, bestWeight, []) -: (\(_, _, l) -> l)
+                        (0, bestWeight, [])
+                      -: (\(_, _, l) -> l)
         nextPos (i, w, l)
             | value - getValue item == nextV = (i + 1, nextW, i:l)
             | otherwise = (i + 1, w, l)
@@ -122,9 +123,12 @@ backTrack items getMemo maxWeight =
                 item = items V.! i
                 nextW = w - getWeight item
                 value = getMemo i w
-                nextV = getMemo (i+1) nextW
+                nextV
+                    | nextW < 0 = 0
+                    | otherwise = getMemo (i+1) nextW
 
 
+-- backtracking makes errors: -1 instead of 0 in memo needed?
 solveMemo :: Items -> Weight -> Result
 solveMemo items maxWeight = backTrack items getMemo maxWeight
     --error $ show (chunksOf (maxWeight+1) (V.toList memo))
@@ -150,5 +154,6 @@ args2Func mode = error $ "unknown mode: " ++ show mode
 main :: IO ()
 main = do
     solve <- args2Func <$> getArgs
+    print $ solve testItems 60
     print $ solve items1 30
-    --print $ solve (V.fromList $ [Item "1" 10 10, Item "2" 2 2]) 5
+    print $ solve (V.fromList $ [Item "1" 10 10, Item "2" 2 2]) 5
