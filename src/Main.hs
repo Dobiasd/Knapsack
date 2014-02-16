@@ -53,13 +53,6 @@ type Index = Int
 type Params = (Index, Weight)
 type Memo = M.Map Params Value
 
--- Naive solution fills both fields.
---  It would only need the second, since the first
---  can be calculated on demand, but this would again
---  lift its algorithmic complexity.
--- The memoized solution only uses the first field,
---  since it can not know about the second.
---  The items are backtracked after everything is done.
 data Result = Result { getValueSum :: Int, getItems :: [Item] }
 
 instance Ord Result where
@@ -72,30 +65,30 @@ instance Show Result where
     show (Result valueSum items) =
         show valueSum : map show items -: intercalate "\n"
 
-add :: Result -> Result -> Result
-(Result v1 l1) `add` (Result v2 l2) = Result (v1 + v2) (l1 ++ l2)
+addItem :: Result -> Item -> Result
+(Result valSum items) `addItem` item@(Item _ val _) =
+    Result (valSum + val) (item:items)
 
-type Solver = Items -> Index -> [Item] -> Weight -> Result
+type Solver = Items -> Index -> Weight -> Result
 
-solveGoodIdx :: Solver -> Items -> Index -> [Item] -> Weight -> Result
-solveGoodIdx go items idx inside weightLeft
-    | itemWeight > weightLeft = go items (idx + 1) inside weightLeft
+solveGoodIdx :: Solver -> Items -> Index -> Weight -> Result
+solveGoodIdx go items idx weightLeft
+    | itemWeight > weightLeft = go items (idx + 1) weightLeft
     | otherwise =
-        max (go items (idx + 1) inside weightLeft)
-            (go items (idx + 1) (inside ++ [item]) (weightLeft - itemWeight)
-                `add` Result itemValue [])
+        max (go items (idx + 1) weightLeft)
+            (go items (idx + 1) (weightLeft - itemWeight) `addItem` item)
     where
         item = items V.! idx
-        (itemValue, itemWeight) = (getValue item, getWeight item)
+        itemWeight = getWeight item
 
-solveNaiveGo :: Items -> Index -> [Item] -> Weight -> Result
-solveNaiveGo items idx inside weightLeft
-    | idx >= numItems = Result 0 inside
-    | otherwise = solveGoodIdx solveNaiveGo items idx inside weightLeft
+solveNaiveGo :: Items -> Index -> Weight -> Result
+solveNaiveGo items idx weightLeft
+    | idx >= numItems = Result 0 []
+    | otherwise = solveGoodIdx solveNaiveGo items idx weightLeft
     where numItems = V.length items
 
 solveNaive :: Items -> Weight -> Result
-solveNaive items = solveNaiveGo items 0 []
+solveNaive items = solveNaiveGo items 0
 
 maxIndex :: Ord a => [a] -> Int
 maxIndex xs = head $ filter ((== maximum xs) . (xs !!)) [0..]
@@ -127,14 +120,14 @@ backTrack items getMemo maxWeight =
 solveMemo :: Items -> Weight -> Result
 solveMemo items maxWeight = backTrack items getMemo maxWeight
     where
-        memo = V.fromList [solveGoodIdx memoSolver items i [] w |
+        memo = V.fromList [getValueSum $ solveGoodIdx memoSolver items i w |
                                i <- [0..(numItems-1)]
                              , w <- [0..maxWeight]]
         memoIndex idx weight = idx * (maxWeight+1) + weight
         getMemo idx weight
             | idx >= numItems = Result 0 []
-            | otherwise = memo V.! memoIndex idx weight
-        memoSolver _ idx _ weight = getMemo idx weight
+            | otherwise = Result (memo V.! memoIndex idx weight) []
+        memoSolver _ idx weight = getMemo idx weight
         numItems = V.length items
 
 
