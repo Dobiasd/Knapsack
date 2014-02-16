@@ -159,7 +159,7 @@ test numItems maxWeight =
     (solveMemo items maxWeight -: getValueSum)
     == (solveNaive items maxWeight -: getValueSum)
     where
-        items = V.slice 0 (min (V.length items) 3) testItems
+        items = V.slice 0 (min (V.length items) numItems) testItems
 
 main :: IO ()
 main = QC.quickCheck test
