@@ -5,7 +5,7 @@ module Main where
 import Control.Applicative
 import Data.Function
 import Data.List
---import Data.List.Split
+import Data.List.Split
 import System.Environment
 import System.Random
 import qualified Data.Map as M
@@ -29,7 +29,7 @@ randomList n = take n . unfoldr (Just . random)
 testItems :: Items
 testItems = V.fromList $ zipWith3 Item names randomValues randomWeights
     where
-        names = map show ([1..] :: [Int])
+        names = map show ([0..] :: [Int])
         randomValues =  randomList 100 (mkStdGen 0) -: map clamp
         randomWeights = randomList 100 (mkStdGen 1) -: map clamp
         clamp = (+1) . (`mod` 90)
@@ -62,11 +62,14 @@ instance Ord Result where
 instance Eq Result where
     (==) = (==) `on` getValueSum
 
+checkResult :: Result -> Bool
+checkResult (Result valueSum items) = True -- valueSum == (map getValue items -: sum)
+
 instance Show Result where
-    show (Result valueSum items)
-        | calculatedSum == valueSum = show valueSum
-                                    : show calculatedSum
-                                    : map show items -: intercalate "\n"
+    show result@(Result valueSum items)
+        | checkResult result = show valueSum
+                               : show calculatedSum
+                               : map show items -: intercalate "\n"
         | otherwise = error $ show calculatedSum ++ "/=" ++ show valueSum
         where calculatedSum = map getValue items -: sum
 
@@ -115,37 +118,35 @@ backTrack items getMemo maxWeight =
         valueSum = getMemo 0 bestWeight
         numItems = V.length items
         bestWeight = maxIndex $ map (getMemo 0) [0..maxWeight]
+
         indices :: [Index]
         indices = until (\(i, _, _) -> i >= numItems)
                         nextPos
                         (0, bestWeight, [])
                       -: (\(_, _, l) -> l)
         nextPos (i, w, l)
-            | value - getValue item == nextV = (i + 1, nextW, i:l)
-            | otherwise = (i + 1, w, l)
+            | getMemo (i + 1) w == w = (i + 1, w, l)
+            | otherwise = (i + 1, w - getWeight item, i:l)
             where
                 item = items V.! i
-                nextW = w - getWeight item
-                value = getMemo i w
-                nextV
-                    | nextW < 0 = 0
-                    | otherwise = getMemo (i+1) nextW
 
 
 -- backtracking makes errors: -1 instead of 0 in memo needed?
 solveMemo :: Items -> Weight -> Result
 solveMemo items maxWeight = backTrack items getMemo maxWeight
     --error $ show (chunksOf (maxWeight+1) (V.toList memo))
+    --error $ show items
     where
         memo :: V.Vector Value
         memo = V.fromList [ getValueSum $ solveGoodIdx memoSolver items i w |
                                i <- [0..(numItems-1)]
-                             , w <- [0..maxWeight]]
+                             , w <- [0..maxWeight] ]
         memoIndex idx weight = idx * (maxWeight+1) + weight
         getMemo :: Index -> Weight -> Value
         getMemo idx weight
             | idx >= numItems = 0
-            | otherwise = memo V.! memoIndex idx weight
+            | otherwise = val
+            where val = memo V.! memoIndex idx weight
         memoSolver _ idx weight = Result (getMemo idx weight) []
         numItems = V.length items
 
@@ -155,10 +156,29 @@ args2Func ("naive":_) = solveNaive
 args2Func ("memo":_) = solveMemo
 args2Func mode = error $ "unknown mode: " ++ show mode
 
+
+testSlice :: (Items -> Weight -> Result) -> Index -> Weight -> Result
+testSlice solver numItems maxWeight =
+    solver (V.slice 0 numItems testItems) maxWeight
+
+test :: (Items -> Weight -> Result) -> String
+test solver = show $ head badTestCases
+    where
+        testCases = [ (i, w) |i <- [0..99], w <- [0..99]]
+        results = map (\(i, w) -> ((i, w), testSlice solver i w)) testCases
+        badResults = filter (\(_, result) -> (not . checkResult) result)
+                            results
+        badTestCases = map fst badResults
+
+        --[ (i, w) |i <- [99..99], w <- [60..60]]
+
+
 main :: IO ()
 main = do
     solve <- args2Func <$> getArgs
-    print $ solve testItems 60
+    --print $ solve testItems 60
+    --print test
+    print $ testSlice solve 50 8
     --print $ solve items1 30
     --print $ solve (V.fromList $ [Item "1" 10 10, Item "2" 2 2]) 5
     --print $ solve (V.fromList $ [Item "1" 1 1, Item "2" 2 2, Item "3" 3 3]) 4
