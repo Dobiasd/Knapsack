@@ -5,9 +5,10 @@ module Main where
 import Control.Applicative
 import Data.Function
 import Data.List
-import Data.List.Split
+--import Data.List.Split
 import System.Environment
 import System.Random
+import qualified Test.QuickCheck as QC
 import qualified Data.Map as M
 import qualified Data.Vector as V
 
@@ -30,9 +31,9 @@ testItems :: Items
 testItems = V.fromList $ zipWith3 Item names randomValues randomWeights
     where
         names = map show ([0..] :: [Int])
-        randomValues =  randomList 100 (mkStdGen 0) -: map clamp
-        randomWeights = randomList 100 (mkStdGen 1) -: map clamp
-        clamp = (+1) . (`mod` 90)
+        randomValues =  randomList 40 (mkStdGen 0) -: map clamp
+        randomWeights = randomList 40 (mkStdGen 1) -: map clamp
+        clamp = (+0) . (`mod` 20)
 
 -- weight limit 30 -> (38, ["0", "4", "8"])
 items1 :: Items
@@ -63,7 +64,7 @@ instance Eq Result where
     (==) = (==) `on` getValueSum
 
 checkResult :: Result -> Bool
-checkResult (Result valueSum items) = True -- valueSum == (map getValue items -: sum)
+checkResult (Result valueSum items) = valueSum == (map getValue items -: sum)
 
 instance Show Result where
     show result@(Result valueSum items)
@@ -152,9 +153,19 @@ args2Func ("naive":_) = solveNaive
 args2Func ("memo":_) = solveMemo
 args2Func mode = error $ "unknown mode: " ++ show mode
 
+-- todo: fix
+test :: Index -> Weight -> Bool
+test numItems maxWeight =
+    (solveMemo items maxWeight -: getValueSum)
+    == (solveNaive items maxWeight -: getValueSum)
+    where
+        items = V.slice 0 (min (V.length items) 3) testItems
 
 main :: IO ()
-main = do
+main = QC.quickCheck test
+
+amain :: IO ()
+amain = do
     solve <- args2Func <$> getArgs
-    print $ solve testItems 60
+    print $ solve testItems 34
     print $ solve items1 30
