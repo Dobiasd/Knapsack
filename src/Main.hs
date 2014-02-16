@@ -5,6 +5,7 @@ module Main where
 import Control.Applicative
 import Data.Function
 import Data.List
+--import Data.List.Split
 import System.Environment
 import System.Random
 import qualified Data.Map as M
@@ -33,27 +34,27 @@ testItems = V.fromList $ zipWith3 Item names randomValues randomWeights
         randomWeights = randomList 100 (mkStdGen 1) -: map clamp
         clamp = (+1) . (`mod` 90)
 
--- weight limit 30 -> (38, ["1", "5", "9"])
+-- weight limit 30 -> (38, ["0", "4", "8"])
 items1 :: Items
 items1 = V.fromList
         [
-          Item  "1"  8  5
-        , Item  "2"  8  5
-        , Item  "3"  6  6
-        , Item  "4"  5  8
-        , Item  "5" 10 10
-        , Item  "6"  5 11
-        , Item  "7" 10 12
-        , Item  "8" 17 15
-        , Item  "9" 20 15
-        , Item "10" 20 30
+          Item "0"  8  5
+        , Item "1"  8  5
+        , Item "2"  6  6
+        , Item "3"  5  8
+        , Item "4" 10 10
+        , Item "5"  5 11
+        , Item "6" 10 12
+        , Item "7" 17 15
+        , Item "8" 20 15
+        , Item "9" 20 30
         ]
 
 type Index = Int
 type Params = (Index, Weight)
 type Memo = M.Map Params Value
 
-data Result = Result { getValueSum :: Int, getItems :: [Item] }
+data Result = Result { getValueSum :: Value, getItems :: [Item] }
 
 instance Ord Result where
     compare = compare `on` getValueSum
@@ -71,7 +72,7 @@ addItem :: Result -> Item -> Result
 
 type Solver = Items -> Index -> Weight -> Result
 
-solveGoodIdx :: Solver -> Items -> Index -> Weight -> Result
+solveGoodIdx :: Solver -> Solver
 solveGoodIdx go items idx weightLeft
     | itemWeight > weightLeft = go items (idx + 1) weightLeft
     | otherwise =
@@ -81,7 +82,7 @@ solveGoodIdx go items idx weightLeft
         item = items V.! idx
         itemWeight = getWeight item
 
-solveNaiveGo :: Items -> Index -> Weight -> Result
+solveNaiveGo :: Solver
 solveNaiveGo items idx weightLeft
     | idx >= numItems = Result 0 []
     | otherwise = solveGoodIdx solveNaiveGo items idx weightLeft
@@ -93,41 +94,51 @@ solveNaive items = solveNaiveGo items 0
 maxIndex :: Ord a => [a] -> Int
 maxIndex xs = head $ filter ((== maximum xs) . (xs !!)) [0..]
 
-backTrack :: Items -> (Index -> Weight -> Result) -> Weight -> Result
+{-
+value in cells
+x = -1
+weight     012345
+index
+        0      9x
+        1
+        2
+        3
+-}
+backTrack :: Items -> (Index -> Weight -> Value) -> Weight -> Result
 backTrack items getMemo maxWeight =
-    Result valueSum (map (items V.!) (f [] 0 valueSum))
+    Result valueSum (map (items V.!) (reverse indices))
     where
-        valueSum = getValueSum $ getMemo 0 maxWeightIdx
+        valueSum = getMemo 0 bestWeight
         numItems = V.length items
-        maxWeightIdx = maxIndex $ map (getMemo 0) [0..maxWeight]
-        f :: [Index] -> Index -> Weight -> [Index]
-        f acc idx weightSum
-            | idx >= numItems = acc
-            | nextValSum == valSum - getValue item =
-                f (acc ++ [idx]) (idx + 1) nextWeightSum
-            | otherwise = f acc (idx + 1) weightSum
+        bestWeight = maxIndex $ map (getMemo 0) [0..maxWeight]
+        indices :: [Index]
+        indices = until (\(i, _, _) -> i >= numItems)
+                        nextPos
+                        (0, bestWeight, []) -: (\(_, _, l) -> l)
+        nextPos (i, w, l)
+            | value - getValue item == nextV = (i + 1, nextW, i:l)
+            | otherwise = (i + 1, w, l)
             where
-                valSum = getValueSum $ getMemo idx weightSum
-                nextWeightSum = weightSum - itemWeight
-                nextValSum
-                    | nextWeightSum >= 0 =
-                        getValueSum $ getMemo (idx + 1) nextWeightSum
-                    | otherwise = -1
-                item = items V.! idx
-                itemWeight = getWeight item
+                item = items V.! i
+                nextW = w - getWeight item
+                value = getMemo i w
+                nextV = getMemo (i+1) nextW
 
 
 solveMemo :: Items -> Weight -> Result
 solveMemo items maxWeight = backTrack items getMemo maxWeight
+    --error $ show (chunksOf (maxWeight+1) (V.toList memo))
     where
-        memo = V.fromList [getValueSum $ solveGoodIdx memoSolver items i w |
+        memo :: V.Vector Value
+        memo = V.fromList [ getValueSum $ solveGoodIdx memoSolver items i w |
                                i <- [0..(numItems-1)]
                              , w <- [0..maxWeight]]
         memoIndex idx weight = idx * (maxWeight+1) + weight
+        getMemo :: Index -> Weight -> Value
         getMemo idx weight
-            | idx >= numItems = Result 0 []
-            | otherwise = Result (memo V.! memoIndex idx weight) []
-        memoSolver _ idx weight = getMemo idx weight
+            | idx >= numItems = 0
+            | otherwise = memo V.! memoIndex idx weight
+        memoSolver _ idx weight = Result (getMemo idx weight) []
         numItems = V.length items
 
 
