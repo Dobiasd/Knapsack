@@ -63,8 +63,12 @@ instance Eq Result where
     (==) = (==) `on` getValueSum
 
 instance Show Result where
-    show (Result valueSum items) =
-        show valueSum : map show items -: intercalate "\n"
+    show (Result valueSum items)
+        | calculatedSum == valueSum = show valueSum
+                                    : show calculatedSum
+                                    : map show items -: intercalate "\n"
+        | otherwise = error $ show calculatedSum ++ "/=" ++ show valueSum
+        where calculatedSum = map getValue items -: sum
 
 addItem :: Result -> Item -> Result
 (Result valSum items) `addItem` item@(Item _ val _) =
@@ -155,5 +159,6 @@ main :: IO ()
 main = do
     solve <- args2Func <$> getArgs
     print $ solve testItems 60
-    print $ solve items1 30
-    print $ solve (V.fromList $ [Item "1" 10 10, Item "2" 2 2]) 5
+    --print $ solve items1 30
+    --print $ solve (V.fromList $ [Item "1" 10 10, Item "2" 2 2]) 5
+    --print $ solve (V.fromList $ [Item "1" 1 1, Item "2" 2 2, Item "3" 3 3]) 4
