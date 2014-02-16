@@ -120,18 +120,14 @@ backTrack items getMemo maxWeight =
         bestWeight = maxIndex $ map (getMemo 0) [0..maxWeight]
 
         indices :: [Index]
-        indices = until (\(i, _, _) -> i >= numItems)
-                        nextPos
-                        (0, bestWeight, [])
-                      -: (\(_, _, l) -> l)
+        indices = until (\(i, w, _) -> i >= numItems || w <= 0)
+                        nextPos (0, bestWeight, []) -: (\(_, _, l) -> l)
         nextPos (i, w, l)
-            | getMemo (i + 1) w == w = (i + 1, w, l)
+            | getMemo (i + 1) w == getMemo i w = (i + 1, w, l)
             | otherwise = (i + 1, w - getWeight item, i:l)
             where
                 item = items V.! i
 
-
--- backtracking makes errors: -1 instead of 0 in memo needed?
 solveMemo :: Items -> Weight -> Result
 solveMemo items maxWeight = backTrack items getMemo maxWeight
     --error $ show (chunksOf (maxWeight+1) (V.toList memo))
@@ -157,28 +153,8 @@ args2Func ("memo":_) = solveMemo
 args2Func mode = error $ "unknown mode: " ++ show mode
 
 
-testSlice :: (Items -> Weight -> Result) -> Index -> Weight -> Result
-testSlice solver numItems maxWeight =
-    solver (V.slice 0 numItems testItems) maxWeight
-
-test :: (Items -> Weight -> Result) -> String
-test solver = show $ head badTestCases
-    where
-        testCases = [ (i, w) |i <- [0..99], w <- [0..99]]
-        results = map (\(i, w) -> ((i, w), testSlice solver i w)) testCases
-        badResults = filter (\(_, result) -> (not . checkResult) result)
-                            results
-        badTestCases = map fst badResults
-
-        --[ (i, w) |i <- [99..99], w <- [60..60]]
-
-
 main :: IO ()
 main = do
     solve <- args2Func <$> getArgs
-    --print $ solve testItems 60
-    --print test
-    print $ testSlice solve 50 8
-    --print $ solve items1 30
-    --print $ solve (V.fromList $ [Item "1" 10 10, Item "2" 2 2]) 5
-    --print $ solve (V.fromList $ [Item "1" 1 1, Item "2" 2 2, Item "3" 3 3]) 4
+    print $ solve testItems 60
+    print $ solve items1 30
