@@ -8,6 +8,7 @@ import Data.List
 --import Data.List.Split
 import System.Environment
 import System.Random
+import Text.Printf
 --import qualified Test.QuickCheck as QC
 import qualified Data.Map as M
 import qualified Data.Vector as V
@@ -19,9 +20,9 @@ infixl 0 -:
 
 type Value = Int
 type Weight = Int
-data Item = Item { name :: String
+data Item = Item { getName :: String
                  , getValue :: Value
-                 , getWeight :: Weight } deriving (Show, Ord, Eq)
+                 , getWeight :: Weight } deriving (Ord, Eq)
 type Items = V.Vector Item
 
 randomList :: Int -> StdGen -> [Int]
@@ -31,8 +32,8 @@ testItems :: Items
 testItems = V.fromList $ zipWith3 Item names randomValues randomWeights
     where
         names = map show ([0..] :: [Int])
-        randomValues =  randomList 40 (mkStdGen 0) -: map clamp
-        randomWeights = randomList 40 (mkStdGen 1) -: map clamp
+        randomValues =  randomList 100 (mkStdGen 0) -: map clamp
+        randomWeights = randomList 100 (mkStdGen 1) -: map clamp
         clamp = (+1) . (`mod` 20) -- strictly positive integers
 
 -- weight limit 30 -> (38, ["0", "4", "8"])
@@ -68,6 +69,12 @@ instance Eq Result where
 
 checkResult :: Result -> Bool
 checkResult (Result valueSum items) = valueSum == (map getValue items -: sum)
+
+instance Show Item where
+    show (Item name value weight) =
+        [ printf "name: %2s" name
+        , printf "value: %2d" value
+        , printf "weight: %2d" weight ] -: intercalate "   "
 
 instance Show Result where
     show result@(Result valueSum items)
@@ -165,7 +172,9 @@ test numItems maxWeight =
     where
         memoResult = solveMemo items maxWeight
         naiveResult = solveNaive items maxWeight
-        items = V.slice 0 numItems testItems
+        items
+            | numItems > V.length testItems = error "Invalid item count."
+            | otherwise = V.slice 0 numItems testItems
 
 tests :: IO ()
 tests = do
@@ -174,12 +183,12 @@ tests = do
                   numItems <- [0..20], maxWeight <- [0..70]]
     let badResults = filter (not . snd) results
     putStrLn $ if null badResults then "Tests OK."
-                               else "Tests failed:\n" ++ show badResults
+                                  else "Tests failed:\n" ++ show badResults
 
 main :: IO ()
 main = do
     solve <- args2Func <$> getArgs
     tests
-    print $ solve testItems 34
+    print $ solve (V.slice 0 40 testItems) 34
     --print $ solve items1 30
     --print $ solve (V.slice 0 6 testItems) 22
