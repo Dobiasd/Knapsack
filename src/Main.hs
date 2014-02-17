@@ -20,6 +20,11 @@ infixl 0 -:
 randomList :: Int -> StdGen -> [Int]
 randomList n = take n . unfoldr (Just . random)
 
+maxIndex :: Ord a => [a] -> Int
+maxIndex xs = head $ filter ((== maximum xs) . (xs !!)) [0..]
+
+
+
 
 
 type Value = Int
@@ -90,13 +95,37 @@ solveNaive items = solveNaiveGo items 0
 
 
 
-maxIndex :: Ord a => [a] -> Int
-maxIndex xs = head $ filter ((== maximum xs) . (xs !!)) [0..]
+
 
 type MemoGetter = Index -> Weight -> Value
+type BTPos = (Index, Weight, [Index])
+type NextBTPos = Items -> MemoGetter -> BTPos -> BTPos
 type BackTracking = Items -> MemoGetter -> Weight -> Result
-backTrack :: BackTracking
-backTrack items getMemo maxWeight =
+type GenericBackTracking = NextBTPos -> BackTracking
+
+nextPosSimple :: NextBTPos
+nextPosSimple items getMemo (i, w, l)
+    | getMemo (i + 1) w == getMemo i w = (i + 1, w, l)
+    | otherwise = (i + 1, w - getWeight item, i:l)
+    where
+        item = items V.! i
+
+nextPosProggenOrg :: NextBTPos
+nextPosProggenOrg items getMemo (i, w, l)
+    | possNextWeight >= 0 &&
+      currValue - itemValue == possNextValue =
+        (i + 1, w - itemWeight, i:l)
+    | otherwise = (i + 1, w, l)
+    where
+        possNextWeight = w - itemWeight
+        possNextValue = getMemo (i + 1) possNextWeight
+        currValue = getMemo i w
+        itemWeight = getWeight item
+        itemValue = getValue item
+        item = items V.! i
+
+backTrack :: GenericBackTracking
+backTrack nextPos items getMemo maxWeight =
     Result valueSum (map (items V.!) (reverse indices))
     where
         valueSum = getMemo 0 bestWeight
@@ -105,36 +134,7 @@ backTrack items getMemo maxWeight =
 
         indices :: [Index]
         indices = until (\(i, w, _) -> i >= numItems || w <= 0)
-                        nextPos (0, bestWeight, []) -: (\(_, _, l) -> l)
-        nextPos (i, w, l)
-            | getMemo (i + 1) w == getMemo i w = (i + 1, w, l)
-            | otherwise = (i + 1, w - getWeight item, i:l)
-            where
-                item = items V.! i
-
-backTrackProggenOrd :: BackTracking
-backTrackProggenOrd items getMemo maxWeight =
-    Result valueSum (map (items V.!) (reverse indices))
-    where
-        valueSum = getMemo 0 bestWeight
-        numItems = V.length items
-        bestWeight = maxIndex $ map (getMemo 0) [0..maxWeight]
-
-        indices :: [Index]
-        indices = until (\(i, w, _) -> i >= numItems || w <= 0)
-                        nextPos (0, bestWeight, []) -: (\(_, _, l) -> l)
-        nextPos (i, w, l)
-            | possNextWeight >= 0 &&
-              currValue - itemValue == possNextValue =
-                (i + 1, w - itemWeight, i:l)
-            | otherwise = (i + 1, w, l)
-            where
-                possNextWeight = w - itemWeight
-                possNextValue = getMemo (i + 1) possNextWeight
-                currValue = getMemo i w
-                itemWeight = getWeight item
-                itemValue = getValue item
-                item = items V.! i
+                        (nextPos items getMemo) (0, bestWeight, []) -: (\(_, _, l) -> l)
 
 
 
@@ -195,8 +195,8 @@ test firstItem numItems maxWeight =
     getValueSum memoResult == getValueSum naiveResult &&
     getValueSum memoPOResult == getValueSum naiveResult
     where
-        memoResult = solveMemo backTrack items maxWeight
-        memoPOResult = solveMemo backTrackProggenOrd items maxWeight
+        memoResult = solveMemo (backTrack nextPosSimple) items maxWeight
+        memoPOResult = solveMemo (backTrack nextPosProggenOrg) items maxWeight
         naiveResult = solveNaive items maxWeight
         items
             | numItems > V.length testItems = error "Invalid item count."
@@ -216,13 +216,11 @@ tests = do
 
 args2Func :: [String] -> Items -> Weight -> Result
 args2Func ("naive":_) = solveNaive
-args2Func ("memo":_) = solveMemo backTrack
+args2Func ("memo":_) = solveMemo (backTrack nextPosSimple)
 args2Func mode = error $ "unknown mode: " ++ show mode
 
 main :: IO ()
 main = do
     solve <- args2Func <$> getArgs
     tests
-    --print $ solve (V.slice 0 40 testItems) 34
-    --print $ solve (V.slice 0 6 testItems) 22
     print $ solve items1 30
