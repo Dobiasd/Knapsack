@@ -1,6 +1,6 @@
 module Main where
 
-{-| bounded Knapsack problem -}
+{-| 0-1 knapsack problem -}
 
 import Control.Applicative
 import Data.Function
@@ -8,7 +8,7 @@ import Data.List
 --import Data.List.Split
 import System.Environment
 import System.Random
-import qualified Test.QuickCheck as QC
+--import qualified Test.QuickCheck as QC
 import qualified Data.Map as M
 import qualified Data.Vector as V
 
@@ -33,7 +33,7 @@ testItems = V.fromList $ zipWith3 Item names randomValues randomWeights
         names = map show ([0..] :: [Int])
         randomValues =  randomList 40 (mkStdGen 0) -: map clamp
         randomWeights = randomList 40 (mkStdGen 1) -: map clamp
-        clamp = (+0) . (`mod` 20)
+        clamp = (+1) . (`mod` 20) -- strictly positive integers
 
 -- weight limit 30 -> (38, ["0", "4", "8"])
 items1 :: Items
@@ -56,6 +56,9 @@ type Params = (Index, Weight)
 type Memo = M.Map Params Value
 
 data Result = Result { getValueSum :: Value, getItems :: [Item] }
+
+getWeightSum :: Result -> Weight
+getWeightSum = sum . map getWeight . getItems
 
 instance Ord Result where
     compare = compare `on` getValueSum
@@ -130,7 +133,8 @@ backTrack items getMemo maxWeight =
                 item = items V.! i
 
 solveMemo :: Items -> Weight -> Result
-solveMemo items maxWeight = backTrack items getMemo maxWeight
+solveMemo items maxWeight =
+    backTrack items getMemo maxWeight
     --error $ show (chunksOf (maxWeight+1) (V.toList memo))
     --error $ show items
     where
@@ -141,31 +145,40 @@ solveMemo items maxWeight = backTrack items getMemo maxWeight
         memoIndex idx weight = idx * (maxWeight+1) + weight
         getMemo :: Index -> Weight -> Value
         getMemo idx weight
+            | idx < 0 = error "idx < 0"
+            | weight < 0 = error "weight < 0"
+            | weight > maxWeight = error "weight > maxWeight"
             | idx >= numItems = 0
             | otherwise = val
             where val = memo V.! memoIndex idx weight
         memoSolver _ idx weight = Result (getMemo idx weight) []
         numItems = V.length items
 
-
 args2Func :: [String] -> Items -> Weight -> Result
 args2Func ("naive":_) = solveNaive
 args2Func ("memo":_) = solveMemo
 args2Func mode = error $ "unknown mode: " ++ show mode
 
--- todo: fix
 test :: Index -> Weight -> Bool
 test numItems maxWeight =
-    (solveMemo items maxWeight -: getValueSum)
-    == (solveNaive items maxWeight -: getValueSum)
+    getValueSum memoResult == getValueSum naiveResult
     where
-        items = V.slice 0 (min (V.length items) numItems) testItems
+        memoResult = solveMemo items maxWeight
+        naiveResult = solveNaive items maxWeight
+        items = V.slice 0 numItems testItems
+
+tests :: IO ()
+tests = do
+    let results = [((numItems, maxWeight), test numItems maxWeight) |
+                  numItems <- [0..20], maxWeight <- [0..70]]
+    let badResults = filter (not . snd) results
+    print $ if null badResults then "Tests OK."
+                               else "Tests failed:\n" ++ show badResults
 
 main :: IO ()
-main = QC.quickCheck test
-
-amain :: IO ()
-amain = do
+main = do
     solve <- args2Func <$> getArgs
+    tests
     print $ solve testItems 34
-    print $ solve items1 30
+    --print $ solve items1 30
+    --print $ solve (V.slice 0 6 testItems) 22
