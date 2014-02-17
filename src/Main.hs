@@ -5,11 +5,9 @@ module Main where
 import Control.Applicative
 import Data.Function
 import Data.List
---import Data.List.Split
 import System.Environment
 import System.Random
 import Text.Printf
---import qualified Test.QuickCheck as QC
 import qualified Data.Map as M
 import qualified Data.Vector as V
 
@@ -36,7 +34,6 @@ testItems = V.fromList $ zipWith3 Item names randomValues randomWeights
         randomWeights = randomList 100 (mkStdGen 1) -: map clamp
         clamp = (+1) . (`mod` 20) -- strictly positive integers
 
--- weight limit 30 -> (38, ["0", "4", "8"])
 items1 :: Items
 items1 = V.fromList
         [
@@ -122,7 +119,10 @@ index
         2
         3
 -}
-backTrack :: Items -> (Index -> Weight -> Value) -> Weight -> Result
+
+type MemoGetter = Index -> Weight -> Value
+type BackTracking = Items -> MemoGetter -> Weight -> Result
+backTrack :: BackTracking
 backTrack items getMemo maxWeight =
     Result valueSum (map (items V.!) (reverse indices))
     where
@@ -139,9 +139,33 @@ backTrack items getMemo maxWeight =
             where
                 item = items V.! i
 
-solveMemo :: Items -> Weight -> Result
-solveMemo items maxWeight =
-    backTrack items getMemo maxWeight
+backTrackProggenOrd :: BackTracking
+backTrackProggenOrd items getMemo maxWeight =
+    Result valueSum (map (items V.!) (reverse indices))
+    where
+        valueSum = getMemo 0 bestWeight
+        numItems = V.length items
+        bestWeight = maxIndex $ map (getMemo 0) [0..maxWeight]
+
+        indices :: [Index]
+        indices = until (\(i, w, _) -> i >= numItems || w <= 0)
+                        nextPos (0, bestWeight, []) -: (\(_, _, l) -> l)
+        nextPos (i, w, l)
+            | possNextWeight >= 0 &&
+              currValue - itemValue == possNextValue =
+                (i + 1, w - itemWeight, i:l)
+            | otherwise = (i + 1, w, l)
+            where
+                possNextWeight = w - itemWeight
+                possNextValue = getMemo (i + 1) possNextWeight
+                currValue = getMemo i w
+                itemWeight = getWeight item
+                itemValue = getValue item
+                item = items V.! i
+
+solveMemo :: BackTracking -> Items -> Weight -> Result
+solveMemo backtracking items maxWeight =
+    backtracking items getMemo maxWeight
     --error $ show (chunksOf (maxWeight+1) (V.toList memo))
     --error $ show items
     where
@@ -150,7 +174,7 @@ solveMemo items maxWeight =
                                i <- [0..(numItems-1)]
                              , w <- [0..maxWeight] ]
         memoIndex idx weight = idx * (maxWeight+1) + weight
-        getMemo :: Index -> Weight -> Value
+        getMemo :: MemoGetter
         getMemo idx weight
             | idx < 0 = error "idx < 0"
             | weight < 0 = error "weight < 0"
@@ -163,24 +187,26 @@ solveMemo items maxWeight =
 
 args2Func :: [String] -> Items -> Weight -> Result
 args2Func ("naive":_) = solveNaive
-args2Func ("memo":_) = solveMemo
+args2Func ("memo":_) = solveMemo backTrack
 args2Func mode = error $ "unknown mode: " ++ show mode
 
-test :: Index -> Weight -> Bool
-test numItems maxWeight =
-    getValueSum memoResult == getValueSum naiveResult
+test :: Index -> Index -> Weight -> Bool
+test firstItem numItems maxWeight =
+    getValueSum memoResult == getValueSum naiveResult &&
+    getValueSum memoPOResult == getValueSum naiveResult
     where
-        memoResult = solveMemo items maxWeight
+        memoResult = solveMemo backTrack items maxWeight
+        memoPOResult = solveMemo backTrackProggenOrd items maxWeight
         naiveResult = solveNaive items maxWeight
         items
             | numItems > V.length testItems = error "Invalid item count."
-            | otherwise = V.slice 0 numItems testItems
+            | otherwise = V.slice firstItem numItems testItems
 
 tests :: IO ()
 tests = do
     putStrLn "Running tests ..."
-    let results = [((numItems, maxWeight), test numItems maxWeight) |
-                  numItems <- [0..20], maxWeight <- [0..70]]
+    let results = [((firstItem, numItems, maxWeight), test firstItem numItems maxWeight) |
+                  firstItem <- [0..20], numItems <- [0..20], maxWeight <- [0..50]]
     let badResults = filter (not . snd) results
     putStrLn $ if null badResults then "Tests OK."
                                   else "Tests failed:\n" ++ show badResults
@@ -189,6 +215,6 @@ main :: IO ()
 main = do
     solve <- args2Func <$> getArgs
     tests
-    print $ solve (V.slice 0 40 testItems) 34
-    --print $ solve items1 30
+    --print $ solve (V.slice 0 40 testItems) 34
     --print $ solve (V.slice 0 6 testItems) 22
+    print $ solve items1 30
