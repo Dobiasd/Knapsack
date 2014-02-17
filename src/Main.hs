@@ -169,10 +169,11 @@ test numItems maxWeight =
 
 tests :: IO ()
 tests = do
+    putStrLn "Running tests ..."
     let results = [((numItems, maxWeight), test numItems maxWeight) |
                   numItems <- [0..20], maxWeight <- [0..70]]
     let badResults = filter (not . snd) results
-    print $ if null badResults then "Tests OK."
+    putStrLn $ if null badResults then "Tests OK."
                                else "Tests failed:\n" ++ show badResults
 
 main :: IO ()
