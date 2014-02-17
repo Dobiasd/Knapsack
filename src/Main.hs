@@ -8,13 +8,19 @@ import Data.List
 import System.Environment
 import System.Random
 import Text.Printf
-import qualified Data.Map as M
 import qualified Data.Vector as V
+
+
 
 {-| forward application -}
 (-:) :: a -> (a -> b) -> b
 x -: f = f x
 infixl 0 -:
+
+randomList :: Int -> StdGen -> [Int]
+randomList n = take n . unfoldr (Just . random)
+
+
 
 type Value = Int
 type Weight = Int
@@ -23,55 +29,21 @@ data Item = Item { getName :: String
                  , getWeight :: Weight } deriving (Ord, Eq)
 type Items = V.Vector Item
 
-randomList :: Int -> StdGen -> [Int]
-randomList n = take n . unfoldr (Just . random)
+instance Show Item where
+    show (Item name value weight) =
+        [ printf "name: %2s" name
+        , printf "value: %2d" value
+        , printf "weight: %2d" weight ] -: intercalate "   "
 
-testItems :: Items
-testItems = V.fromList $ zipWith3 Item names randomValues randomWeights
-    where
-        names = map show ([0..] :: [Int])
-        randomValues =  randomList 100 (mkStdGen 0) -: map clamp
-        randomWeights = randomList 100 (mkStdGen 1) -: map clamp
-        clamp = (+1) . (`mod` 20) -- strictly positive integers
 
-items1 :: Items
-items1 = V.fromList
-        [
-          Item "0"  8  5
-        , Item "1"  8  5
-        , Item "2"  6  6
-        , Item "3"  5  8
-        , Item "4" 10 10
-        , Item "5"  5 11
-        , Item "6" 10 12
-        , Item "7" 17 15
-        , Item "8" 20 15
-        , Item "9" 20 30
-        ]
-
-type Index = Int
-type Params = (Index, Weight)
-type Memo = M.Map Params Value
 
 data Result = Result { getValueSum :: Value, getItems :: [Item] }
-
-getWeightSum :: Result -> Weight
-getWeightSum = sum . map getWeight . getItems
 
 instance Ord Result where
     compare = compare `on` getValueSum
 
 instance Eq Result where
     (==) = (==) `on` getValueSum
-
-checkResult :: Result -> Bool
-checkResult (Result valueSum items) = valueSum == (map getValue items -: sum)
-
-instance Show Item where
-    show (Item name value weight) =
-        [ printf "name: %2s" name
-        , printf "value: %2d" value
-        , printf "weight: %2d" weight ] -: intercalate "   "
 
 instance Show Result where
     show result@(Result valueSum items)
@@ -81,10 +53,19 @@ instance Show Result where
         | otherwise = error $ show calculatedSum ++ "/=" ++ show valueSum
         where calculatedSum = map getValue items -: sum
 
+checkResult :: Result -> Bool
+checkResult (Result valueSum items) = valueSum == (map getValue items -: sum)
+
+getWeightSum :: Result -> Weight
+getWeightSum = sum . map getWeight . getItems
+
 addItem :: Result -> Item -> Result
 (Result valSum items) `addItem` item@(Item _ val _) =
     Result (valSum + val) (item:items)
 
+
+
+type Index = Int
 type Solver = Items -> Index -> Weight -> Result
 
 solveGoodIdx :: Solver -> Solver
@@ -106,19 +87,11 @@ solveNaiveGo items idx weightLeft
 solveNaive :: Items -> Weight -> Result
 solveNaive items = solveNaiveGo items 0
 
+
+
+
 maxIndex :: Ord a => [a] -> Int
 maxIndex xs = head $ filter ((== maximum xs) . (xs !!)) [0..]
-
-{-
-value in cells
-x = -1
-weight     012345
-index
-        0      9x
-        1
-        2
-        3
--}
 
 type MemoGetter = Index -> Weight -> Value
 type BackTracking = Items -> MemoGetter -> Weight -> Result
@@ -163,6 +136,9 @@ backTrackProggenOrd items getMemo maxWeight =
                 itemValue = getValue item
                 item = items V.! i
 
+
+
+
 solveMemo :: BackTracking -> Items -> Weight -> Result
 solveMemo backtracking items maxWeight =
     backtracking items getMemo maxWeight
@@ -185,10 +161,34 @@ solveMemo backtracking items maxWeight =
         memoSolver _ idx weight = Result (getMemo idx weight) []
         numItems = V.length items
 
-args2Func :: [String] -> Items -> Weight -> Result
-args2Func ("naive":_) = solveNaive
-args2Func ("memo":_) = solveMemo backTrack
-args2Func mode = error $ "unknown mode: " ++ show mode
+
+
+
+
+testItems :: Items
+testItems = V.fromList $ zipWith3 Item names randomValues randomWeights
+    where
+        names = map show ([0..] :: [Int])
+        randomValues =  randomList 100 (mkStdGen 0) -: map clamp
+        randomWeights = randomList 100 (mkStdGen 1) -: map clamp
+        clamp = (+1) . (`mod` 20) -- strictly positive integers
+
+items1 :: Items
+items1 = V.fromList
+        [
+          Item "0"  8  5
+        , Item "1"  8  5
+        , Item "2"  6  6
+        , Item "3"  5  8
+        , Item "4" 10 10
+        , Item "5"  5 11
+        , Item "6" 10 12
+        , Item "7" 17 15
+        , Item "8" 20 15
+        , Item "9" 20 30
+        ]
+
+
 
 test :: Index -> Index -> Weight -> Bool
 test firstItem numItems maxWeight =
@@ -210,6 +210,14 @@ tests = do
     let badResults = filter (not . snd) results
     putStrLn $ if null badResults then "Tests OK."
                                   else "Tests failed:\n" ++ show badResults
+
+
+
+
+args2Func :: [String] -> Items -> Weight -> Result
+args2Func ("naive":_) = solveNaive
+args2Func ("memo":_) = solveMemo backTrack
+args2Func mode = error $ "unknown mode: " ++ show mode
 
 main :: IO ()
 main = do
