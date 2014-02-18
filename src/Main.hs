@@ -153,9 +153,10 @@ solveMemo backtracking items maxWeight =
         getMemo :: MemoGetter
         getMemo idx weight
             | idx < 0 = error "idx < 0"
+            | idx > numItems = error "idx > numItems"
             | weight < 0 = error "weight < 0"
             | weight > maxWeight = error "weight > maxWeight"
-            | idx >= numItems = 0
+            | idx == numItems = 0
             | otherwise = val
             where val = memo V.! memoIndex idx weight
         memoSolver _ idx weight = Result (getMemo idx weight) []
